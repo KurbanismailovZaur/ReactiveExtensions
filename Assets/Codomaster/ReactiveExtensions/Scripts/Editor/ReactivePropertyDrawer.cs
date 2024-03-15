@@ -45,7 +45,7 @@ namespace Codomaster.ReactiveExtensions.Editor
                 EditorCoroutineUtility.StartCoroutineOwnerless(WaitOneFrameAndInvokeEventEnumerator());
             
             var (chanProp, chanPropRect) = FindChangedPropertyData(position, property, valProp);
-            EditorGUI.PropertyField(chanPropRect, chanProp, GUIContent.none, true);
+            EditorGUI.PropertyField(chanPropRect, chanProp, new GUIContent(chanProp.name), true);
 
             EditorGUI.indentLevel -= 1;
             EditorGUI.EndProperty();
