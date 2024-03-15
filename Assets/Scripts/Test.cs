@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Codomaster.ReactiveExtensions;
@@ -10,7 +11,7 @@ public class Test : MonoBehaviour
     [SerializeField] private ReactiveProperty<float> _floatProperty;
 
     [SerializeField] private ReactiveProperty<SomeStruct> _someStructProperty;
-    
+
     public void OnFloatPropertyChanged(float value)
     {
         transform.position = new Vector3(0f, 0f, value);

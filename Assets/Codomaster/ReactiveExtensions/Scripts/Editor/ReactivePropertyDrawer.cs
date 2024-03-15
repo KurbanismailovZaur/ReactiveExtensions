@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Reflection;
 using Unity.EditorCoroutines.Editor;
 using UnityEditor;
@@ -10,6 +11,7 @@ namespace Codomaster.ReactiveExtensions.Editor
     public class ReactivePropertyDrawer : PropertyDrawer
     {
         private object _reactiveProperty;
+        private Type _reactivePropertyValueType;
         private MethodInfo _reactivePropertyInvokeChangedEventMethodInfo;
         private WaitForEndOfFrame _waitForEndOfFrame;
         private BindingFlags _bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -38,10 +40,13 @@ namespace Codomaster.ReactiveExtensions.Editor
             
             EditorGUI.BeginProperty(position, label, property);
             EditorGUI.indentLevel += 1;
+
+            if (IsValueOfPrimitiveTypeOrString())
+                EditorGUI.BeginChangeCheck();
             
-            EditorGUI.BeginChangeCheck();
-            EditorGUI.PropertyField(valPropRect, valProp, true);
-            if (EditorGUI.EndChangeCheck())
+            EditorGUI.PropertyField(valPropRect, valProp, new GUIContent($"Value ({_reactiveProperty.GetType().GetGenericArguments()[0].Name})"), true);
+            
+            if (IsValueOfPrimitiveTypeOrString() && EditorGUI.EndChangeCheck())
                 EditorCoroutineUtility.StartCoroutineOwnerless(WaitOneFrameAndInvokeEventEnumerator());
             
             var (chanProp, chanPropRect) = FindChangedPropertyData(position, property, valProp);
@@ -53,17 +58,18 @@ namespace Codomaster.ReactiveExtensions.Editor
 
         private (SerializedProperty valProp, Rect valPropRect) FindValuePropertyData(Rect position, SerializedProperty property)
         {
-            var valProp = property.FindPropertyRelative("_value");
-            var targetObject = valProp.serializedObject.targetObject;
+            var targetObject = property.serializedObject.targetObject;
 
-            var bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
             var fieldInfo = targetObject.GetType().GetField(property.propertyPath, bindingFlags);
 
             _reactiveProperty = fieldInfo.GetValue(targetObject);
+            _reactivePropertyValueType = _reactiveProperty.GetType().GetField("_value", bindingFlags).FieldType;
             _reactivePropertyInvokeChangedEventMethodInfo = _reactiveProperty.GetType().GetMethod("InvokeChangedEvent", bindingFlags);
 
             var valuePropertyYPosition = position.y + EditorGUIUtility.standardVerticalSpacing + EditorGUIUtility.singleLineHeight;
             var valPropRect = new Rect(position.x, valuePropertyYPosition, position.width, EditorGUIUtility.singleLineHeight);
+            var valProp = property.FindPropertyRelative("_value");
 
             return (valProp, valPropRect);
         }
@@ -80,11 +86,12 @@ namespace Codomaster.ReactiveExtensions.Editor
         private bool IsFoldoutCollapsed(Rect position, SerializedProperty property, GUIContent label)
         {
             var foldoutRect = new Rect(position.x, position.y, EditorGUIUtility.labelWidth, EditorGUIUtility.singleLineHeight);
-            var content = $"{label} ({nameof(ReactiveProperty<int>)}<{_reactiveProperty.GetType().GetGenericArguments()[0].Name}>)";
-            property.isExpanded = EditorGUI.Foldout(foldoutRect, property.isExpanded, content);
+            property.isExpanded = EditorGUI.Foldout(foldoutRect, property.isExpanded, label);
 
             return !property.isExpanded;
         }
+
+        private bool IsValueOfPrimitiveTypeOrString() => _reactivePropertyValueType.IsPrimitive || _reactivePropertyValueType == typeof(string);
 
         private IEnumerator WaitOneFrameAndInvokeEventEnumerator()
         {
