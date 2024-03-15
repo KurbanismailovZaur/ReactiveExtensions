@@ -14,7 +14,6 @@ namespace Codomaster.ReactiveExtensions.Editor
         private Type _reactivePropertyValueType;
         private MethodInfo _reactivePropertyInvokeChangedEventMethodInfo;
         private WaitForEndOfFrame _waitForEndOfFrame;
-        private BindingFlags _bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
@@ -41,12 +40,12 @@ namespace Codomaster.ReactiveExtensions.Editor
             EditorGUI.BeginProperty(position, label, property);
             EditorGUI.indentLevel += 1;
 
-            if (IsValueOfPrimitiveTypeOrString())
+            if (IsValueOfTrackableType())
                 EditorGUI.BeginChangeCheck();
             
             EditorGUI.PropertyField(valPropRect, valProp, new GUIContent($"Value ({_reactiveProperty.GetType().GetGenericArguments()[0].Name})"), true);
             
-            if (IsValueOfPrimitiveTypeOrString() && EditorGUI.EndChangeCheck())
+            if (IsValueOfTrackableType() && EditorGUI.EndChangeCheck())
                 EditorCoroutineUtility.StartCoroutineOwnerless(WaitOneFrameAndInvokeEventEnumerator());
             
             var (chanProp, chanPropRect) = FindChangedPropertyData(position, property, valProp);
@@ -91,7 +90,13 @@ namespace Codomaster.ReactiveExtensions.Editor
             return !property.isExpanded;
         }
 
-        private bool IsValueOfPrimitiveTypeOrString() => _reactivePropertyValueType.IsPrimitive || _reactivePropertyValueType == typeof(string);
+        private bool IsValueOfTrackableType()
+        {
+            return _reactivePropertyValueType.IsPrimitive 
+                   || _reactivePropertyValueType == typeof(string) 
+                   || _reactivePropertyValueType == typeof(UnityEngine.Object)
+                   || _reactivePropertyValueType.IsSubclassOf(typeof(UnityEngine.Object));
+        }
 
         private IEnumerator WaitOneFrameAndInvokeEventEnumerator()
         {
